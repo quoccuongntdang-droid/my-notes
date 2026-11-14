@@ -13,4 +13,19 @@ Nói dối
 
 
 
-Sự cạnh tranh
+Sự cạnh tranh 
+
+
+
+
+Phỉ báng và xét đoán 
+
+
+
+
+Nịnh hót 
+
+
+
+
+Lằm bằm và bất mãn
