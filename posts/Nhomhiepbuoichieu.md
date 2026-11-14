@@ -8,4 +8,9 @@ Khải Huyền 2: 5
 
 
 
-Nói dối
+Nói dối 
+
+
+
+
+Sự cạnh tranh
