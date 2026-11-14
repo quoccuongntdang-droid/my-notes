@@ -3,174 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soạn Thảo Markdown & GitHub</title>
-    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+    <title>Google Docs Cloud Mobile</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        h2 { color: #333; font-size: 20px; text-align: center; margin-top: 0; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 14px; }
-        input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fff; }
-        #editor-container { height: 320px; margin-bottom: 15px; font-size: 16px; }
-        .btn-group { display: flex; gap: 10px; }
-        .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
-        .btn-secondary { background: #0366d6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 10px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        .container { flex: 1; display: flex; flex-direction: column; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 100%; }
+        h2 { color: #333; font-size: 18px; text-align: center; margin: 0 0 10px 0; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; color: #444; font-size: 13px; }
+        .input-row { display: flex; gap: 8px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+        .btn { background: #0366d6; color: white; border: none; padding: 10px 15px; font-size: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn:active { opacity: 0.8; }
-        #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
-        .ql-toolbar.ql-snow { border-top-left-radius: 8px; border-top-right-radius: 8px; background: #fff; }
-        .ql-container.ql-snow { border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+        
+        /* Khung chứa Google Docs iframe */
+        .frame-container { flex: 1; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; margin-top: 5px; background: #fff; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        #status { font-size: 12px; text-align: center; margin-top: 5px; color: #666; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📝 Soạn Thảo Markdown -> GitHub</h2>
+    <h2>📄 Nhúng Google Docs Trực Tiếp</h2>
 
     <div class="form-group">
-        <label>📂 Chọn file có sẵn trên Git:</label>
-        <select id="fileSelect" onchange="loadSelectedFile()">
-            <option value="">-- Tạo file mới hoặc chọn file cũ --</option>
-        </select>
+        <label>Dán Link Google Doc của bạn vào đây:</label>
+        <div class="input-row">
+            <input type="text" id="docLink" placeholder="https://docs.google.com/document/d/.../edit">
+            <button class="btn" onclick="loadGoogleDoc()">Mở Docs</button>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label>Tên File (VD: ghi-chu.md hoặc bai-viet.html):</label>
-        <input type="text" id="fileName" placeholder="ten-file.md">
+    <div class="frame-container">
+        <!-- Khung hiển thị Google Docs -->
+        <iframe id="docsFrame" src="" allowfullscreen></iframe>
     </div>
-
-    <div class="form-group">
-        <label>Nội dung soạn thảo:</label>
-        <div id="editor-container"></div>
-    </div>
-
-    <div class="btn-group">
-        <button class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
-        <button class="btn" onclick="saveToMarkdown()">🚀 Lưu file .md lên Git</button>
-    </div>
-    <div id="status"></div>
+    
+    <div id="status">Mẹo: Hãy chia sẻ tài liệu Google Docs ở chế độ "Bất kỳ ai có đường liên kết đều có quyền chỉnh sửa" để nhúng mượt mà nhất.</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
-    const quill = new Quill('#editor-container', {
-        theme: 'snow',
-        placeholder: 'Gõ nội dung văn bản ở đây...'
-    });
-
-    // Tải danh sách file từ Git khi mở trang
-    window.onload = async function() {
-        try {
-            const res = await fetch('/api/files');
-            const data = await res.json();
-            if (data.success && data.files.length > 0) {
-                const select = document.getElementById('fileSelect');
-                data.files.forEach(file => {
-                    const opt = document.createElement('option');
-                    opt.value = file;
-                    opt.textContent = file;
-                    select.appendChild(opt);
-                });
-            }
-        } catch (err) {
-            console.error('Lỗi tải danh sách file:', err);
+    // Tự động nhớ link Google Doc đã dùng gần nhất trên điện thoại
+    window.onload = function() {
+        const savedLink = localStorage.getItem('my_google_doc_link');
+        if (savedLink) {
+            document.getElementById('docLink').value = savedLink;
+            setEmbedUrl(savedLink);
         }
     };
 
-    // Mở file cũ để sửa
-    async function loadSelectedFile() {
-        const fileName = document.getElementById('fileSelect').value;
-        if (!fileName) return;
-
-        document.getElementById('fileName').value = fileName;
-        document.getElementById('status').style.color = '#005cc5';
-        document.getElementById('status').innerText = `Đang tải file "${fileName}"...`;
-
-        try {
-            const res = await fetch(`/api/file/${fileName}`);
-            const data = await res.json();
-            if (data.success) {
-                // Nếu là file .md, đưa thẳng text vào, nếu là .html thì load html
-                if (fileName.endsWith('.md')) {
-                    quill.setText(data.content);
-                } else {
-                    quill.root.innerHTML = data.content;
-                }
-                document.getElementById('status').style.color = '#2ea44f';
-                document.getElementById('status').innerText = `Đã mở file "${fileName}" thành công!`;
-            } else {
-                alert(data.message);
-            }
-        } catch (err) {
-            alert('Lỗi tải nội dung file!');
-        }
-    }
-
-    function newFile() {
-        document.getElementById('fileName').value = '';
-        document.getElementById('fileSelect').value = '';
-        quill.root.innerHTML = '';
-        document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
-    }
-
-    // Hàm chuyển đổi nội dung soạn thảo sang chuẩn Markdown đơn giản & sạch sẽ
-    function htmlToMarkdown(html) {
-        let md = html;
-        md = md.replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n');
-        md = md.replace(/<h2>(.*?)<\/h2>/gi, '## $1\n\n');
-        md = md.replace(/<h3>(.*?)<\/h3>/gi, '### $1\n\n');
-        md = md.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
-        md = md.replace(/<b>(.*?)<\/b>/gi, '**$1**');
-        md = md.replace(/<em>(.*?)<\/em>/gi, '*$1*');
-        md = md.replace(/<i>(.*?)<\/i>/gi, '*$1*');
-        md = md.replace(/<code>(.*?)<\/code>/gi, '`$1`');
-        md = md.replace(/<p>(.*?)<\/p>/gi, '$1\n\n');
-        md = md.replace(/<br\s*[\/]?>/gi, '\n');
-        // Loại bỏ các thẻ HTML rác còn sót lại
-        md = md.replace(/<[^>]+>/g, '');
-        return md.trim();
-    }
-
-    // Lưu file lên GitHub dưới dạng Markdown hoặc giữ nguyên HTML tùy tên bạn đặt
-    async function saveToMarkdown() {
-        const fileName = document.getElementById('fileName').value.trim();
-        const statusDiv = document.getElementById('status');
-
-        if (!fileName) {
-            alert('Vui lòng nhập tên file (ví dụ: baiviet.md)!');
+    function loadGoogleDoc() {
+        let rawLink = document.getElementById('docLink').value.trim();
+        if (!rawLink) {
+            alert('Vui lòng dán link Google Docs!');
             return;
         }
+        localStorage.setItem('my_google_doc_link', rawLink);
+        setEmbedUrl(rawLink);
+    }
 
-        let contentToSend = quill.root.innerHTML;
-
-        // Nếu file có đuôi .md, hệ thống sẽ tự động convert sang văn bản Markdown gọn gàng
-        if (fileName.endsWith('.md')) {
-            contentToSend = htmlToMarkdown(quill.root.innerHTML);
+    function setEmbedUrl(link) {
+        // Chuyển đổi link Google Docs thông thường sang dạng nhúng (embedded=true)
+        let embedUrl = link;
+        if (link.includes('/edit')) {
+            embedUrl = link.split('/edit')[0] + '/edit?embedded=true';
+        } else if (!link.includes('embedded=true')) {
+            embedUrl = link.replace(/\/$/, '') + '/edit?embedded=true';
         }
-
-        statusDiv.style.color = '#005cc5';
-        statusDiv.innerText = 'Đang đẩy file lên GitHub...';
-
-        try {
-            const response = await fetch('/api/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName, content: contentToSend })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                statusDiv.style.color = '#2ea44f';
-                statusDiv.innerText = `🎉 ${result.message}`;
-            } else {
-                statusDiv.style.color = '#d73a49';
-                statusDiv.innerText = `❌ Lỗi: ${result.message}`;
-            }
-        } catch (error) {
-            statusDiv.style.color = '#d73a49';
-            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
-        }
+        
+        document.getElementById('docsFrame').src = embedUrl;
     }
 </script>
 
