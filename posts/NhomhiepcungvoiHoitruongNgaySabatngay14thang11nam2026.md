@@ -7,15 +7,33 @@ mục lục
 
 1 lời khen và ý muốn của Đức Chúa Trời
 
+
+
+
 2 Hiệu quả của lời khen
+
+
+
 
 3 phương pháp tìm ra điều để khen ngợi
 
-4
 
-5
+
+
+4 Phương pháp khen ngợi hiệu quả
+
+
+
+
+5 những điểm cần lưu ý khi đưa ra lời khen
+
+
+
 
 jess lair nói về lời khen
+
+
+
 
 mark twain về lời khen
 
