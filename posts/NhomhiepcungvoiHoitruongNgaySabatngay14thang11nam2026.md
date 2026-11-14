@@ -1,41 +1,44 @@
-Lời khuyến khích can đảm, LỜI KHEN
+# Lời khuyến khích can đảm, LỜI KHEN
 
 
 
 
-mục lục
-
-1 lời khen và ý muốn của Đức Chúa Trời
+# mục lục
 
 
 
 
-2 Hiệu quả của lời khen
+### 1 lời khen và ý muốn của Đức Chúa Trời
 
 
 
 
-3 phương pháp tìm ra điều để khen ngợi
+### 2 Hiệu quả của lời khen
+
+### 
+
+
+### 3 phương pháp tìm ra điều để khen ngợi
+
+### 
+
+
+### 4 Phương pháp khen ngợi hiệu quả
+
+### 
+
+
+### 5 những điểm cần lưu ý khi đưa ra lời khen
 
 
 
 
-4 Phương pháp khen ngợi hiệu quả
+**jess lair nói về lời khen**
 
 
 
 
-5 những điểm cần lưu ý khi đưa ra lời khen
-
-
-
-
-jess lair nói về lời khen
-
-
-
-
-mark twain về lời khen
+**mark twain về lời khen**
 
 
 
