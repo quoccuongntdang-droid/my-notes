@@ -28,4 +28,64 @@ Nịnh hót
 
 
 
-Lằm bằm và bất mãn
+Lằm bằm và bất mãn 
+
+
+
+
+Ghen ghét 
+
+
+
+
+Đố kỵ 
+
+
+
+
+Cố chấp 
+
+
+
+
+Không vâng phục 
+
+
+
+
+Bất hoà 
+
+
+
+
+Phỉ báng 
+
+
+
+
+Biếng nhác 
+
+
+
+
+châm ngôn 10: 21 
+
+
+
+
+Tà dâm 
+
+
+
+
+Ăn chơi 
+
+
+
+
+Giải trí 
+
+
+
+
+mác 9: 48 - 49
