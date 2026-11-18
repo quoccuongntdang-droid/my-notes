@@ -3,16 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- 1. Đổi chữ hiển thị trên tab trình duyệt tại đây -->
     <title>✍️ Quản Lý Ghi Chú GitHub</title>
-    
-    <!-- 2. Thêm dòng này để đổi icon quả địa cầu thành icon riêng của bạn (đường dẫn ảnh png hoặc ico) -->
-    <link rel="icon" type="image/png" href="https://ahnsahnghong.com/wp-content/uploads/2021/07/church-of-god-established-by-ahnsahnghong.jpg">
-
+    <link rel="icon" type="image/png" href="https://i.imgur.com/your-icon-link.png">
     <!-- Tích hợp TinyMCE -->
     <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
-    
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 12px; box-sizing: border-box; }
         .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
@@ -22,6 +16,9 @@
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 14px; }
         input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; background: #fff; }
         
+        /* Tăng chiều cao cho select khi chọn nhiều file */
+        select[multiple] { height: 160px; padding: 6px; }
+        
         .btn-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
         .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; min-width: 120px; }
         .btn-secondary { background: #0366d6; }
@@ -30,6 +27,7 @@
         .btn:active { opacity: 0.8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
         .move-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 15px; }
+        .note { font-size: 12px; color: #666; margin-top: 4px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -41,20 +39,20 @@
     <div class="form-group">
         <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
         <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()">
-        <datalist id="foldersList">
-            <!-- Danh sách thư mục tự động cập nhật -->
-        </datalist>
+        <datalist id="foldersList"></datalist>
     </div>
 
+    <!-- Chọn nhiều file (Giữ Ctrl hoặc Shift để chọn nhiều) -->
     <div class="form-group">
-        <label>📂 Chọn file có sẵn trong thư mục này:</label>
-        <select id="fileSelect" onchange="loadSelectedFile()">
-            <option value="">-- Chọn file cũ để sửa hoặc xem --</option>
+        <label>📂 Chọn file có sẵn trong thư mục này (Có thể chọn nhiều file):</label>
+        <select id="fileSelect" multiple onchange="loadSelectedFile()">
+            <option value="">-- Đang tải danh sách file... --</option>
         </select>
+        <div class="note">💡 Mẹo: Giữ phím <b>Ctrl</b> (trên Windows) hoặc <b>Cmd</b> (trên Mac) để chọn nhiều file cùng lúc. Nếu chọn 1 file, hệ thống sẽ mở để chỉnh sửa bên dưới.</div>
     </div>
 
     <div class="form-group">
-        <label>Tên File:</label>
+        <label>Tên File (Dùng khi viết hoặc sửa 1 file):</label>
         <input type="text" id="fileName" placeholder="Nhập tên file...">
     </div>
 
@@ -66,16 +64,16 @@
     <div class="btn-group">
         <button class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
         <button class="btn" onclick="saveToGitHub()">🚀 Lưu lên GitHub</button>
-        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file</button>
+        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file đang chọn</button>
     </div>
 
-    <!-- Khối chuyển file sang thư mục khác -->
+    <!-- Khối chuyển nhiều file sang thư mục khác -->
     <div class="move-box">
         <div class="form-group" style="margin-bottom: 10px;">
-            <label style="color: #d97706;">➡️ Chuyển file này sang thư mục đích (Chọn hoặc gõ mới):</label>
+            <label style="color: #d97706;">➡️ Chuyển các file đang chọn sang thư mục đích:</label>
             <input type="text" id="targetFolderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục đích đến...">
         </div>
-        <button class="btn btn-warning" style="width: 100%;" onclick="moveFile()">📂 Xác nhận chuyển thư mục</button>
+        <button class="btn btn-warning" style="width: 100%;" onclick="moveMultipleFiles()">📂 Xác nhận chuyển các file đã chọn</button>
     </div>
 
     <div id="status"></div>
@@ -105,7 +103,6 @@
             datalist.innerHTML = '';
 
             if (data.success && data.folders.length > 0) {
-                // Sắp xếp tên các thư mục chuẩn số tự nhiên
                 data.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.folders.forEach(folder => {
@@ -135,7 +132,7 @@
         select.innerHTML = '<option value="">-- Đang tải danh sách file... --</option>';
 
         if (!folder) {
-            select.innerHTML = '<option value="">-- Chọn file cũ để sửa hoặc xem --</option>';
+            select.innerHTML = '<option value="">-- Chọn thư mục trước --</option>';
             return;
         }
 
@@ -143,9 +140,8 @@
             const res = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`);
             const data = await res.json();
             
-            select.innerHTML = '<option value="">-- Chọn file cũ để sửa hoặc xem --</option>';
+            select.innerHTML = '';
             if (data.success && data.files.length > 0) {
-                // SẮP XẾP CHUẨN SỐ TỰ NHIÊN (1, 2, ..., 9, 10, 11 thay vì 1, 1.1, 1.10, 2)
                 data.files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.files.forEach(file => {
@@ -154,40 +150,52 @@
                     opt.textContent = file;
                     select.appendChild(opt);
                 });
+            } else {
+                select.innerHTML = '<option value="">-- Thư mục chưa có file nào --</option>';
             }
         } catch (err) {
             console.error('Lỗi tải danh sách file:', err);
-            select.innerHTML = '<option value="">-- Thư mục mới hoặc chưa có file --</option>';
+            select.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
         }
     }
 
+    // Nếu người dùng chọn đúng 1 file, load nội dung vào editor để sửa
     async function loadSelectedFile() {
         const folder = document.getElementById('folderInput').value.trim();
-        const fileName = document.getElementById('fileSelect').value;
-        if (!fileName) return;
+        const select = document.getElementById('fileSelect');
+        const selectedOptions = Array.from(select.selectedOptions);
 
-        document.getElementById('fileName').value = fileName;
-        document.getElementById('status').style.color = '#005cc5';
-        document.getElementById('status').innerText = `Đang tải nội dung file "${fileName}"...`;
+        // Nếu chỉ chọn đúng 1 file thì hiển thị lên trình soạn thảo
+        if (selectedOptions.length === 1) {
+            const fileName = selectedOptions[0].value;
+            if (!fileName) return;
 
-        try {
-            const res = await fetch(`/api/file?folder=${encodeURIComponent(folder)}&filename=${encodeURIComponent(fileName)}`);
-            const data = await res.json();
-            if (data.success) {
-                tinymce.get('myEditor').setContent(data.content);
-                document.getElementById('status').style.color = '#2ea44f';
-                document.getElementById('status').innerText = `Đã mở thành công file "${fileName}"!`;
-            } else {
-                alert(data.message);
+            document.getElementById('fileName').value = fileName;
+            document.getElementById('status').style.color = '#005cc5';
+            document.getElementById('status').innerText = `Đang tải nội dung file "${fileName}"...`;
+
+            try {
+                const res = await fetch(`/api/file?folder=${encodeURIComponent(folder)}&filename=${encodeURIComponent(fileName)}`);
+                const data = await res.json();
+                if (data.success) {
+                    tinymce.get('myEditor').setContent(data.content);
+                    document.getElementById('status').style.color = '#2ea44f';
+                    document.getElementById('status').innerText = `Đã mở thành công file "${fileName}"!`;
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) {
+                alert('Lỗi tải nội dung file!');
             }
-        } catch (err) {
-            alert('Lỗi tải nội dung file!');
+        } else if (selectedOptions.length > 1) {
+            document.getElementById('status').style.color = '#005cc5';
+            document.getElementById('status').innerText = `Đã chọn ${selectedOptions.length} file. Bạn có thể bấm "Xác nhận chuyển các file đã chọn".`;
         }
     }
 
     function newFile() {
         document.getElementById('fileName').value = '';
-        document.getElementById('fileSelect').value = '';
+        document.getElementById('fileSelect').selectedIndex = -1;
         tinymce.get('myEditor').setContent('');
         document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
@@ -195,8 +203,9 @@
     async function saveToGitHub() {
         const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
-        const selectedDropdownValue = document.getElementById('fileSelect').value;
-        const originalFileName = selectedDropdownValue ? selectedDropdownValue : fileName;
+        const select = document.getElementById('fileSelect');
+        const selectedOptions = Array.from(select.selectedOptions);
+        const originalFileName = (selectedOptions.length === 1) ? selectedOptions[0].value : fileName;
         const statusDiv = document.getElementById('status');
 
         if (!folder) {
@@ -238,51 +247,55 @@
 
     async function deleteFile() {
         const folder = document.getElementById('folderInput').value.trim();
-        const fileName = document.getElementById('fileName').value.trim();
+        const select = document.getElementById('fileSelect');
+        const selectedOptions = Array.from(select.selectedOptions);
         const statusDiv = document.getElementById('status');
 
-        if (!fileName) {
-            alert('Vui lòng chọn hoặc nhập tên file cần xóa!');
+        if (selectedOptions.length === 0) {
+            alert('Vui lòng chọn ít nhất một file cần xóa trong danh sách!');
             return;
         }
 
-        if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn file "${fileName}" không?`)) return;
+        const fileNames = selectedOptions.map(opt => opt.value);
+
+        if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${fileNames.length} file đã chọn không?`)) return;
 
         statusDiv.style.color = '#005cc5';
-        statusDiv.innerText = `Đang xóa file "${fileName}"...`;
+        statusDiv.innerText = `Đang xóa ${fileNames.length} file...`;
 
         try {
-            const response = await fetch('/api/delete', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folder, fileName })
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                statusDiv.style.color = '#2ea44f';
-                statusDiv.innerText = `🗑️ ${result.message}`;
-                newFile();
-                await loadFoldersList(false);
-                await loadFilesList();
-            } else {
-                statusDiv.style.color = '#d73a49';
-                statusDiv.innerText = `❌ Lỗi: ${result.message}`;
+            let successCount = 0;
+            for (let fileName of fileNames) {
+                const response = await fetch('/api/delete', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder, fileName })
+                });
+                const result = await response.json();
+                if (result.success) successCount++;
             }
+
+            statusDiv.style.color = '#2ea44f';
+            statusDiv.innerText = `🗑️ Đã xóa thành công ${successCount}/${fileNames.length} file!`;
+            newFile();
+            await loadFoldersList(false);
+            await loadFilesList();
         } catch (error) {
             statusDiv.style.color = '#d73a49';
             statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
         }
     }
 
-    async function moveFile() {
+    // Chuyển NHIỀU file cùng lúc sang thư mục đích
+    async function moveMultipleFiles() {
         const currentFolder = document.getElementById('folderInput').value.trim();
-        const fileName = document.getElementById('fileName').value.trim();
+        const select = document.getElementById('fileSelect');
+        const selectedOptions = Array.from(select.selectedOptions);
         const targetFolder = document.getElementById('targetFolderInput').value.trim();
         const statusDiv = document.getElementById('status');
 
-        if (!fileName) {
-            alert('Vui lòng chọn hoặc nhập tên file cần chuyển!');
+        if (selectedOptions.length === 0) {
+            alert('Vui lòng chọn ít nhất một file để chuyển!');
             return;
         }
 
@@ -296,18 +309,18 @@
             return;
         }
 
-        if (!confirm(`Bạn có muốn chuyển file "${fileName}" sang thư mục "${targetFolder}" không?`)) return;
+        const fileNames = selectedOptions.map(opt => opt.value);
+
+        if (!confirm(`Bạn có muốn chuyển ${fileNames.length} file sang thư mục "${targetFolder}" không?`)) return;
 
         statusDiv.style.color = '#005cc5';
-        statusDiv.innerText = `Đang chuyển file sang "${targetFolder}"...`;
+        statusDiv.innerText = `Đang tiến hành chuyển ${fileNames.length} file sang "${targetFolder}"...`;
 
         try {
-            const content = tinymce.get('myEditor').getContent();
-
-            const response = await fetch('/api/move', {
+            const response = await fetch('/api/move-multiple', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currentFolder, targetFolder, fileName, content })
+                body: JSON.stringify({ currentFolder, targetFolder, fileNames })
             });
 
             const result = await response.json();
@@ -315,6 +328,7 @@
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `✨ ${result.message}`;
                 
+                // Chuyển ô thư mục hiện tại sang thư mục mới
                 document.getElementById('folderInput').value = targetFolder;
                 
                 await loadFoldersList(false);
@@ -325,7 +339,7 @@
             }
         } catch (error) {
             statusDiv.style.color = '#d73a49';
-            statusDiv.innerText = `❌ Lỗi kết nối: `+ error.message;
+            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
         }
     }
 </script>
