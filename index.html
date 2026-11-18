@@ -16,7 +16,6 @@
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 14px; }
         input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; background: #fff; }
         
-        /* Tăng chiều cao cho select khi chọn nhiều file */
         select[multiple] { height: 160px; padding: 6px; }
         
         .btn-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
@@ -24,6 +23,7 @@
         .btn-secondary { background: #0366d6; }
         .btn-warning { background: #d97706; }
         .btn-danger { background: #d73a49; }
+        .btn-info { background: #6f42c1; }
         .btn:active { opacity: 0.8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
         .move-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 15px; }
@@ -38,17 +38,19 @@
     <!-- Ô nhập hoặc chọn thư mục hiện tại -->
     <div class="form-group">
         <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
-        <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()" style="flex: 1;">
+            <button class="btn btn-info" style="flex: 0 0 160px; padding: 10px; font-size: 14px;" onclick="createNewFolder()">📁 Tạo thư mục mới</button>
+        </div>
         <datalist id="foldersList"></datalist>
     </div>
 
-    <!-- Chọn nhiều file (Giữ Ctrl hoặc Shift để chọn nhiều) -->
     <div class="form-group">
         <label>📂 Chọn file có sẵn trong thư mục này (Có thể chọn nhiều file):</label>
         <select id="fileSelect" multiple onchange="loadSelectedFile()">
             <option value="">-- Đang tải danh sách file... --</option>
         </select>
-        <div class="note">💡 Mẹo: Giữ phím <b>Ctrl</b> (trên Windows) hoặc <b>Cmd</b> (trên Mac) để chọn nhiều file cùng lúc. Nếu chọn 1 file, hệ thống sẽ mở để chỉnh sửa bên dưới.</div>
+        <div class="note">💡 Mẹo: Giữ phím <b>Ctrl</b> (Windows) hoặc <b>Cmd</b> (Mac) để chọn nhiều file. Chọn 1 file để mở và chỉnh sửa bên dưới.</div>
     </div>
 
     <div class="form-group">
@@ -67,7 +69,7 @@
         <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file đang chọn</button>
     </div>
 
-    <!-- Khối chuyển nhiều file sang thư mục khác -->
+    <!-- Khối chuyển file sang thư mục khác -->
     <div class="move-box">
         <div class="form-group" style="margin-bottom: 10px;">
             <label style="color: #d97706;">➡️ Chuyển các file đang chọn sang thư mục đích:</label>
@@ -122,6 +124,48 @@
         }
     }
 
+    // Chức năng tạo nhanh thư mục mới mà không cần nhập file/nội dung ngay
+    async function createNewFolder() {
+        const folder = document.getElementById('folderInput').value.trim();
+        const statusDiv = document.getElementById('status');
+
+        if (!folder) {
+            alert('Vui lòng nhập tên thư mục mới cần tạo!');
+            return;
+        }
+
+        statusDiv.style.color = '#005cc5';
+        statusDiv.innerText = `Đang tạo thư mục mới "${folder}" trên GitHub...`;
+
+        try {
+            // Do Git không lưu thư mục rỗng, ta tạo một file khởi tạo mặc định tên là "bat-dau" bên trong
+            const response = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    folder: folder, 
+                    fileName: 'bat-dau', 
+                    originalFileName: 'bat-dau', 
+                    content: `<p>Thư mục ${folder} đã được tạo thành công!</p>` 
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                statusDiv.style.color = '#2ea44f';
+                statusDiv.innerText = `🎉 Đã tạo thành công thư mục "${folder}"!`;
+                await loadFoldersList(false);
+                await loadFilesList();
+            } else {
+                statusDiv.style.color = '#d73a49';
+                statusDiv.innerText = `❌ Lỗi: ${result.message}`;
+            }
+        } catch (error) {
+            statusDiv.style.color = '#d73a49';
+            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
+        }
+    }
+
     function onFolderChange() {
         loadFilesList();
     }
@@ -155,17 +199,15 @@
             }
         } catch (err) {
             console.error('Lỗi tải danh sách file:', err);
-            select.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+            select.innerHTML = '<option value="">-- Thư mục chưa có file nào --</option>';
         }
     }
 
-    // Nếu người dùng chọn đúng 1 file, load nội dung vào editor để sửa
     async function loadSelectedFile() {
         const folder = document.getElementById('folderInput').value.trim();
         const select = document.getElementById('fileSelect');
         const selectedOptions = Array.from(select.selectedOptions);
 
-        // Nếu chỉ chọn đúng 1 file thì hiển thị lên trình soạn thảo
         if (selectedOptions.length === 1) {
             const fileName = selectedOptions[0].value;
             if (!fileName) return;
@@ -189,7 +231,7 @@
             }
         } else if (selectedOptions.length > 1) {
             document.getElementById('status').style.color = '#005cc5';
-            document.getElementById('status').innerText = `Đã chọn ${selectedOptions.length} file. Bạn có thể bấm "Xác nhận chuyển các file đã chọn".`;
+            document.getElementById('status').innerText = `Đã chọn ${selectedOptions.length} file. Bạn có thể bấm chuyển hoặc xóa.`;
         }
     }
 
@@ -252,7 +294,7 @@
         const statusDiv = document.getElementById('status');
 
         if (selectedOptions.length === 0) {
-            alert('Vui lòng chọn ít nhất một file cần xóa trong danh sách!');
+            alert('Vui lòng chọn ít nhất một file cần xóa!');
             return;
         }
 
@@ -286,7 +328,6 @@
         }
     }
 
-    // Chuyển NHIỀU file cùng lúc sang thư mục đích
     async function moveMultipleFiles() {
         const currentFolder = document.getElementById('folderInput').value.trim();
         const select = document.getElementById('fileSelect');
@@ -328,7 +369,6 @@
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `✨ ${result.message}`;
                 
-                // Chuyển ô thư mục hiện tại sang thư mục mới
                 document.getElementById('folderInput').value = targetFolder;
                 
                 await loadFoldersList(false);
