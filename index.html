@@ -30,12 +30,13 @@
 <div class="container">
     <h2>✍️ Trình Soạn Thảo & Quản Lý Thư Mục GitHub</h2>
 
-    <!-- Chọn thư mục hiện tại dạng Dropdown -->
+    <!-- Ô nhập hoặc chọn thư mục hiện tại (Dùng Datalist) -->
     <div class="form-group">
-        <label>📁 Chọn Thư mục hiện tại:</label>
-        <select id="folderSelect" onchange="onFolderChange()">
-            <option value="">-- Đang tải danh sách thư mục... --</option>
-        </select>
+        <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
+        <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" onkeyup="onFolderChange()">
+        <datalist id="foldersList">
+            <!-- Danh sách thư mục sẽ được tự động đổ vào đây -->
+        </datalist>
     </div>
 
     <div class="form-group">
@@ -61,13 +62,11 @@
         <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file</button>
     </div>
 
-    <!-- Khối chuyển file sang thư mục khác bằng Dropdown -->
+    <!-- Khối chuyển file sang thư mục khác (Cũng dùng Datalist cho linh hoạt) -->
     <div class="move-box">
         <div class="form-group" style="margin-bottom: 10px;">
-            <label style="color: #d97706;">➡️ Chuyển file này sang thư mục đích:</label>
-            <select id="targetFolderSelect">
-                <option value="">-- Chọn thư mục đích đến --</option>
-            </select>
+            <label style="color: #d97706;">➡️ Chuyển file này sang thư mục đích (Chọn hoặc gõ mới):</label>
+            <input type="text" id="targetFolderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục đích đến...">
         </div>
         <button class="btn btn-warning" style="width: 100%;" onclick="moveFile()">📂 Xác nhận chuyển thư mục</button>
     </div>
@@ -91,59 +90,49 @@
         loadFoldersList();
     };
 
-    // Hàm lấy danh sách các thư mục từ GitHub
+    // Hàm lấy danh sách các thư mục từ GitHub để nạp vào datalist
     async function loadFoldersList() {
         try {
             const res = await fetch('/api/folders');
             const data = await res.json();
             
-            const folderSelect = document.getElementById('folderSelect');
-            const targetFolderSelect = document.getElementById('targetFolderSelect');
-            
-            folderSelect.innerHTML = '<option value="">-- Chọn thư mục --</option>';
-            targetFolderSelect.innerHTML = '<option value="">-- Chọn thư mục đích đến --</option>';
+            const datalist = document.getElementById('foldersList');
+            datalist.innerHTML = '';
 
             if (data.success && data.folders.length > 0) {
                 data.folders.forEach(folder => {
-                    // Đổ dữ liệu vào select thư mục hiện tại
-                    const opt1 = document.createElement('option');
-                    opt1.value = folder;
-                    opt1.textContent = folder;
-                    folderSelect.appendChild(opt1);
-
-                    // Đổ dữ liệu vào select thư mục đích
-                    const opt2 = document.createElement('option');
-                    opt2.value = folder;
-                    opt2.textContent = folder;
-                    targetFolderSelect.appendChild(opt2);
+                    const opt = document.createElement('option');
+                    opt.value = folder;
+                    datalist.appendChild(opt);
                 });
 
-                // Mặc định chọn thư mục đầu tiên nếu có
-                if (data.folders.includes('posts')) {
-                    folderSelect.value = 'posts';
-                } else {
-                    folderSelect.value = data.folders[0];
+                // Mặc định điền "posts" nếu ô đang trống
+                const folderInput = document.getElementById('folderInput');
+                if (!folderInput.value) {
+                    folderInput.value = data.folders.includes('posts') ? 'posts' : data.folders[0];
+                    loadFilesList();
                 }
-                loadFilesList();
             }
         } catch (err) {
             console.error('Lỗi tải danh sách thư mục:', err);
         }
     }
 
-    // Khi thay đổi thư mục hiện tại
+    // Khi người dùng gõ hoặc chọn thay đổi thư mục
     function onFolderChange() {
         loadFilesList();
-        newFile();
     }
 
-    // Tải danh sách file trong thư mục đang chọn
+    // Tải danh sách file trong thư mục đang chọn/nhập
     async function loadFilesList() {
-        const folder = document.getElementById('folderSelect').value;
+        const folder = document.getElementById('folderInput').value.trim();
         const select = document.getElementById('fileSelect');
         select.innerHTML = '<option value="">-- Đang tải danh sách file... --</option>';
 
-        if (!folder) return;
+        if (!folder) {
+            select.innerHTML = '<option value="">-- Chọn file cũ để sửa hoặc xem --</option>';
+            return;
+        }
 
         try {
             const res = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`);
@@ -160,13 +149,13 @@
             }
         } catch (err) {
             console.error('Lỗi tải danh sách file:', err);
-            select.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+            select.innerHTML = '<option value="">-- Thư mục mới hoặc chưa có file --</option>';
         }
     }
 
     // Mở file cũ để sửa
     async function loadSelectedFile() {
-        const folder = document.getElementById('folderSelect').value;
+        const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileSelect').value;
         if (!fileName) return;
 
@@ -196,16 +185,16 @@
         document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
 
-    // Lưu file lên GitHub
+    // Lưu file lên GitHub (tự động tạo thư mục mới nếu chưa có)
     async function saveToGitHub() {
-        const folder = document.getElementById('folderSelect').value;
+        const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
         const selectedDropdownValue = document.getElementById('fileSelect').value;
         const originalFileName = selectedDropdownValue ? selectedDropdownValue : fileName;
         const statusDiv = document.getElementById('status');
 
         if (!folder) {
-            alert('Vui lòng chọn thư mục!');
+            alert('Vui lòng nhập hoặc chọn tên thư mục!');
             return;
         }
         if (!fileName) {
@@ -229,6 +218,7 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
+                loadFoldersList(); // Cập nhật lại danh sách thư mục (nếu vừa tạo mới)
                 loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
@@ -242,7 +232,7 @@
 
     // Xóa file
     async function deleteFile() {
-        const folder = document.getElementById('folderSelect').value;
+        const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
         const statusDiv = document.getElementById('status');
 
@@ -279,11 +269,11 @@
         }
     }
 
-    // Chuyển file sang thư mục khác bằng option
+    // Chuyển file sang thư mục khác
     async function moveFile() {
-        const currentFolder = document.getElementById('folderSelect').value;
+        const currentFolder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
-        const targetFolder = document.getElementById('targetFolderSelect').value;
+        const targetFolder = document.getElementById('targetFolderInput').value.trim();
         const statusDiv = document.getElementById('status');
 
         if (!fileName) {
@@ -292,7 +282,7 @@
         }
 
         if (!targetFolder) {
-            alert('Vui lòng chọn thư mục đích đến!');
+            alert('Vui lòng nhập hoặc chọn thư mục đích đến!');
             return;
         }
 
@@ -319,8 +309,9 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `✨ ${result.message}`;
-                // Chuyển luôn select thư mục hiện tại sang thư mục mới
-                document.getElementById('folderSelect').value = targetFolder;
+                // Cập nhật lại ô thư mục hiện tại thành thư mục mới
+                document.getElementById('folderInput').value = targetFolder;
+                loadFoldersList();
                 loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
