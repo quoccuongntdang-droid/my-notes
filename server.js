@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. API lấy danh sách file từ thư mục posts/ trên GitHub
+// 2. API lấy danh sách toàn bộ file trong thư mục posts/ trên GitHub
 app.get('/api/files', async (req, res) => {
     try {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts?ref=${GITHUB_BRANCH}`;
@@ -31,8 +31,9 @@ app.get('/api/files', async (req, res) => {
 
         const data = await response.json();
         if (response.ok && Array.isArray(data)) {
+            // Lấy tất cả các file là file thực tế trong thư mục posts/
             const files = data
-                .filter(item => item.type === 'file' && (item.name.endsWith('.md') || item.name.endsWith('.html')))
+                .filter(item => item.type === 'file')
                 .map(item => item.name);
             res.json({ success: true, files });
         } else {
@@ -43,11 +44,11 @@ app.get('/api/files', async (req, res) => {
     }
 });
 
-// 3. API đọc nội dung một file cụ thể trong thư mục posts/
+// 3. API đọc nội dung một file cụ thể trong thư mục posts/ (hỗ trợ giải mã tên file đặc biệt)
 app.get('/api/file/:filename', async (req, res) => {
     try {
-        const filename = req.params.filename;
-        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${filename}?ref=${GITHUB_BRANCH}`;
+        const filename = decodeURIComponent(req.params.filename);
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${encodeURIComponent(filename)}?ref=${GITHUB_BRANCH}`;
         
         const response = await fetch(url, {
             headers: {
@@ -69,7 +70,7 @@ app.get('/api/file/:filename', async (req, res) => {
     }
 });
 
-// 4. API lưu, cập nhật hoặc đổi tên file bên trong thư mục posts/
+// 4. API lưu, cập nhật hoặc đổi tên file trong thư mục posts/
 app.post('/api/save', async (req, res) => {
     try {
         const { fileName, originalFileName, content } = req.body;
@@ -80,9 +81,9 @@ app.post('/api/save', async (req, res) => {
 
         const encodedContent = Buffer.from(content, 'utf8').toString('base64');
 
-        // Kiểm tra xem file mới đã tồn tại trong thư mục posts/ chưa (để lấy SHA nếu cập nhật)
+        // Kiểm tra xem file mới đã tồn tại chưa (để lấy SHA nếu cập nhật)
         let fileSha = null;
-        const checkUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${fileName}?ref=${GITHUB_BRANCH}`;
+        const checkUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${encodeURIComponent(fileName)}?ref=${GITHUB_BRANCH}`;
         const checkRes = await fetch(checkUrl, {
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
@@ -96,7 +97,7 @@ app.post('/api/save', async (req, res) => {
         }
 
         // Ghi/Tạo file vào thư mục posts/ trên GitHub
-        const saveUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${fileName}`;
+        const saveUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${encodeURIComponent(fileName)}`;
         const saveResponse = await fetch(saveUrl, {
             method: 'PUT',
             headers: {
@@ -118,10 +119,10 @@ app.post('/api/save', async (req, res) => {
             return res.status(400).json({ success: false, message: saveResult.message || 'Lỗi khi lưu file lên GitHub' });
         }
 
-        // Xử lý đổi tên file trong posts/ (nếu tên mới khác tên cũ)
+        // Xử lý đổi tên file nếu tên mới khác tên cũ
         if (originalFileName && originalFileName !== fileName) {
             try {
-                const oldCheckUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${originalFileName}?ref=${GITHUB_BRANCH}`;
+                const oldCheckUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/posts/${encodeURIComponent(originalFileName)}?ref=${GITHUB_BRANCH}`;
                 const oldCheckRes = await fetch(oldCheckUrl, {
                     headers: {
                         'Authorization': `token ${GITHUB_TOKEN}`,
