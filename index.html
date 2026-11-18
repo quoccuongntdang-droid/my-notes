@@ -16,21 +16,23 @@
         input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; background: #fff; }
         
         .btn-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-        .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; min-width: 130px; }
+        .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; min-width: 120px; }
         .btn-secondary { background: #0366d6; }
+        .btn-warning { background: #d97706; }
         .btn-danger { background: #d73a49; }
         .btn:active { opacity: 0.8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
+        .move-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>✍️ Trình Soạn Thảo Quản Lý GitHub</h2>
+    <h2>✍️ Trình Soạn Thảo & Quản Lý Thư Mục GitHub</h2>
 
-    <!-- Ô nhập tên thư mục -->
+    <!-- Ô nhập tên thư mục hiện tại -->
     <div class="form-group">
-        <label>📁 Tên Thư mục trên Git (VD: posts, kinh-thanh, ghichu):</label>
+        <label>📁 Thư mục hiện tại đang xem:</label>
         <input type="text" id="folderName" value="posts" placeholder="Nhập tên thư mục..." onchange="loadFilesList()">
     </div>
 
@@ -54,16 +56,25 @@
     <div class="btn-group">
         <button class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
         <button class="btn" onclick="saveToGitHub()">🚀 Lưu lên GitHub</button>
-        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file này</button>
+        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file</button>
     </div>
+
+    <!-- Khối chức năng chuyển file sang thư mục khác -->
+    <div class="move-box">
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label style="color: #d97706;">➡️ Chuyển file này sang thư mục khác:</label>
+            <input type="text" id="targetFolder" placeholder="Nhập tên thư mục đích (VD: Kinh Thanh)...">
+        </div>
+        <button class="btn btn-warning" style="width: 100%;" onclick="moveFile()">📂 Xác nhận chuyển thư mục</button>
+    </div>
+
     <div id="status"></div>
 </div>
 
 <script>
-    // Khởi tạo trình soạn thảo TinyMCE
     tinymce.init({
         selector: '#myEditor',
-        height: 450,
+        height: 420,
         menubar: 'file edit view insert format tools table',
         plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
         toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image media table | align left center right justify | bullist numlist indent outdent | removeformat',
@@ -71,12 +82,10 @@
         branding: false
     });
 
-    // Tự động tải danh sách file khi vừa mở trang hoặc đổi tên thư mục
     window.onload = function() {
         loadFilesList();
     };
 
-    // Hàm gọi API lấy danh sách file theo thư mục đang nhập
     async function loadFilesList() {
         const folder = document.getElementById('folderName').value.trim() || 'posts';
         const select = document.getElementById('fileSelect');
@@ -101,7 +110,6 @@
         }
     }
 
-    // Mở file cũ để sửa
     async function loadSelectedFile() {
         const folder = document.getElementById('folderName').value.trim() || 'posts';
         const fileName = document.getElementById('fileSelect').value;
@@ -126,7 +134,6 @@
         }
     }
 
-    // Tạo bài viết mới
     function newFile() {
         document.getElementById('fileName').value = '';
         document.getElementById('fileSelect').value = '';
@@ -134,13 +141,11 @@
         document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
 
-    // Lưu nội dung lên GitHub
     async function saveToGitHub() {
         const folder = document.getElementById('folderName').value.trim() || 'posts';
         const fileName = document.getElementById('fileName').value.trim();
         const selectedDropdownValue = document.getElementById('fileSelect').value;
         const originalFileName = selectedDropdownValue ? selectedDropdownValue : fileName;
-        
         const statusDiv = document.getElementById('status');
 
         if (!fileName) {
@@ -157,20 +162,14 @@
             const response = await fetch('/api/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    folder: folder,
-                    fileName: fileName,         
-                    originalFileName: originalFileName, 
-                    content: contentToSend 
-                })
+                body: JSON.stringify({ folder, fileName, originalFileName, content: contentToSend })
             });
 
             const result = await response.json();
-
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
-                loadFilesList(); // Tải lại danh sách file
+                loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
                 statusDiv.innerText = `❌ Lỗi: ${result.message}`;
@@ -181,20 +180,17 @@
         }
     }
 
-    // Chức năng Xóa file
     async function deleteFile() {
         const folder = document.getElementById('folderName').value.trim() || 'posts';
         const fileName = document.getElementById('fileName').value.trim();
         const statusDiv = document.getElementById('status');
 
         if (!fileName) {
-            alert('Vụi lòng chọn hoặc nhập tên file cần xóa!');
+            alert('Vui lòng chọn hoặc nhập tên file cần xóa!');
             return;
         }
 
-        if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn file "${fileName}" trong thư mục "${folder}" không?`)) {
-            return;
-        }
+        if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn file "${fileName}" trong thư mục "${folder}" không?`)) return;
 
         statusDiv.style.color = '#005cc5';
         statusDiv.innerText = `Đang xóa file "${fileName}"...`;
@@ -207,12 +203,65 @@
             });
 
             const result = await response.json();
-
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🗑️ ${result.message}`;
                 newFile();
-                loadFilesList(); // Cập nhật lại danh sách file
+                loadFilesList();
+            } else {
+                statusDiv.style.color = '#d73a49';
+                statusDiv.innerText = `❌ Lỗi: ${result.message}`;
+            }
+        } catch (error) {
+            statusDiv.style.color = '#d73a49';
+            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
+        }
+    }
+
+    // Chức năng chuyển file sang thư mục khác
+    async function moveFile() {
+        const currentFolder = document.getElementById('folderName').value.trim() || 'posts';
+        const fileName = document.getElementById('fileName').value.trim();
+        const targetFolder = document.getElementById('targetFolder').value.trim();
+        const statusDiv = document.getElementById('status');
+
+        if (!fileName) {
+            alert('Vui lòng chọn hoặc nhập tên file cần chuyển!');
+            return;
+        }
+
+        if (!targetFolder) {
+            alert('Vui lòng nhập tên thư mục đích muốn chuyển đến!');
+            return;
+        }
+
+        if (currentFolder === targetFolder) {
+            alert('Thư mục đích phải khác thư mục hiện tại!');
+            return;
+        }
+
+        if (!confirm(`Bạn có muốn chuyển file "${fileName}" từ thư mục "${currentFolder}" sang thư mục "${targetFolder}" không?`)) return;
+
+        statusDiv.style.color = '#005cc5';
+        statusDiv.innerText = `Đang chuyển file sang "${targetFolder}"...`;
+
+        try {
+            // Lấy nội dung hiện tại trong editor để đảm bảo dữ liệu mới nhất
+            const content = tinymce.get('myEditor').getContent();
+
+            const response = await fetch('/api/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentFolder, targetFolder, fileName, content })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                statusDiv.style.color = '#2ea44f';
+                statusDiv.innerText = `✨ ${result.message}`;
+                // Chuyển luôn thư mục hiện tại trên web sang thư mục mới cho tiện
+                document.getElementById('folderName').value = targetFolder;
+                loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
                 statusDiv.innerText = `❌ Lỗi: ${result.message}`;
