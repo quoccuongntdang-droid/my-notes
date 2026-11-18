@@ -30,12 +30,12 @@
 <div class="container">
     <h2>✍️ Trình Soạn Thảo & Quản Lý Thư Mục GitHub</h2>
 
-    <!-- Ô nhập hoặc chọn thư mục hiện tại (Dùng Datalist) -->
+    <!-- Ô nhập hoặc chọn thư mục hiện tại -->
     <div class="form-group">
         <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
         <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()">
         <datalist id="foldersList">
-            <!-- Danh sách thư mục sẽ tự động cập nhật -->
+            <!-- Danh sách thư mục tự động cập nhật -->
         </datalist>
     </div>
 
@@ -85,12 +85,10 @@
         branding: false
     });
 
-    // Vừa mở trang sẽ tải danh sách thư mục từ GitHub
     window.onload = function() {
         loadFoldersList(true);
     };
 
-    // Hàm lấy danh sách các thư mục từ GitHub để nạp vào datalist
     async function loadFoldersList(setDefault = false) {
         try {
             const res = await fetch('/api/folders');
@@ -100,6 +98,9 @@
             datalist.innerHTML = '';
 
             if (data.success && data.folders.length > 0) {
+                // Sắp xếp tên các thư mục chuẩn số tự nhiên
+                data.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
                 data.folders.forEach(folder => {
                     const opt = document.createElement('option');
                     opt.value = folder;
@@ -107,7 +108,6 @@
                 });
 
                 const folderInput = document.getElementById('folderInput');
-                // Nếu khởi động lần đầu hoặc ô đang trống thì gán mặc định
                 if (setDefault && !folderInput.value) {
                     folderInput.value = data.folders.includes('posts') ? 'posts' : data.folders[0];
                     loadFilesList();
@@ -118,12 +118,10 @@
         }
     }
 
-    // Khi người dùng chọn hoặc gõ thay đổi thư mục hiện tại
     function onFolderChange() {
         loadFilesList();
     }
 
-    // Tải danh sách file trong thư mục đang chọn/nhập
     async function loadFilesList() {
         const folder = document.getElementById('folderInput').value.trim();
         const select = document.getElementById('fileSelect');
@@ -140,6 +138,9 @@
             
             select.innerHTML = '<option value="">-- Chọn file cũ để sửa hoặc xem --</option>';
             if (data.success && data.files.length > 0) {
+                // SẮP XẾP CHUẨN SỐ TỰ NHIÊN (1, 2, ..., 9, 10, 11 thay vì 1, 1.1, 1.10, 2)
+                data.files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
                 data.files.forEach(file => {
                     const opt = document.createElement('option');
                     opt.value = file;
@@ -153,7 +154,6 @@
         }
     }
 
-    // Mở file cũ để sửa
     async function loadSelectedFile() {
         const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileSelect').value;
@@ -185,7 +185,6 @@
         document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
 
-    // Lưu file lên GitHub (tự động cập nhật ngay danh sách thư mục và file)
     async function saveToGitHub() {
         const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
@@ -218,7 +217,6 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
-                // Cập nhật ngay danh sách thư mục và file mà không cần F5
                 await loadFoldersList(false);
                 await loadFilesList();
             } else {
@@ -231,7 +229,6 @@
         }
     }
 
-    // Xóa file
     async function deleteFile() {
         const folder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
@@ -271,7 +268,6 @@
         }
     }
 
-    // Chuyển file sang thư mục khác (Cập nhật ngay lập tức giao diện)
     async function moveFile() {
         const currentFolder = document.getElementById('folderInput').value.trim();
         const fileName = document.getElementById('fileName').value.trim();
@@ -312,10 +308,8 @@
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `✨ ${result.message}`;
                 
-                // Chuyển luôn ô thư mục hiện tại sang thư mục mới vừa chuyển đến
                 document.getElementById('folderInput').value = targetFolder;
                 
-                // Làm mới danh sách thư mục và danh sách file ngay lập tức không cần F5
                 await loadFoldersList(false);
                 await loadFilesList();
             } else {
@@ -324,7 +318,7 @@
             }
         } catch (error) {
             statusDiv.style.color = '#d73a49';
-            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
+            statusDiv.innerText = `❌ Lỗi kết nối: `+ error.message;
         }
     }
 </script>
