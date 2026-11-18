@@ -25,24 +25,22 @@
 <body>
 
 <div class="container">
-    <h2>✍️ Trình Soạn Thảo Chuẩn Word & GitHub</h2>
+    <h2>✍️ Trình Soạn Thảo Chuẩn Word & GitHub (Thư mục posts/)</h2>
 
     <div class="form-group">
-        <label>📂 Chọn file có sẵn trên Git:</label>
+        <label>📂 Chọn file có sẵn trong thư mục posts/ trên Git:</label>
         <select id="fileSelect" onchange="loadSelectedFile()">
             <option value="">-- Tạo file mới hoặc chọn file cũ để sửa --</option>
         </select>
     </div>
 
     <div class="form-group">
-        <label>Tên File (Có thể chỉnh sửa để đổi tên):</label>
-        <!-- Lưu trữ tên file gốc để backend biết đường xóa file cũ khi đổi tên -->
+        <label>Tên File (VD: baiviet.md hoặc ghichu.html):</label>
         <input type="text" id="fileName" placeholder="ten-file.md">
     </div>
 
     <div class="form-group">
         <label>Nội dung soạn thảo (Giao diện chuyên nghiệp):</label>
-        <!-- Textarea để TinyMCE biến thành giao diện Word -->
         <textarea id="myEditor"></textarea>
     </div>
 
@@ -54,9 +52,6 @@
 </div>
 
 <script>
-    // Biến lưu tên file gốc khi vừa chọn từ danh sách (phục vụ cho việc đổi tên)
-    let originalFileName = "";
-
     // Khởi tạo trình soạn thảo TinyMCE
     tinymce.init({
         selector: '#myEditor',
@@ -68,7 +63,7 @@
         branding: false
     });
 
-    // Tải danh sách file từ Git khi mở trang
+    // Tải danh sách file từ thư mục posts/ trên Git khi mở trang
     window.onload = async function() {
         try {
             const res = await fetch('/api/files');
@@ -92,8 +87,6 @@
         const fileName = document.getElementById('fileSelect').value;
         if (!fileName) return;
 
-        // Lưu lại tên file gốc
-        originalFileName = fileName;
         document.getElementById('fileName').value = fileName;
         document.getElementById('status').style.color = '#005cc5';
         document.getElementById('status').innerText = `Đang tải nội dung file "${fileName}"...`;
@@ -115,11 +108,10 @@
 
     // Tạo bài viết mới
     function newFile() {
-        originalFileName = ""; // Reset tên file gốc
         document.getElementById('fileName').value = '';
         document.getElementById('fileSelect').value = '';
         tinymce.get('myEditor').setContent('');
-        document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
+        document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới trong posts/.';
     }
 
     // Hàm chuyển đổi HTML từ TinyMCE sang Markdown nếu lưu file .md
@@ -139,13 +131,16 @@
         return md.trim();
     }
 
-    // Lưu nội dung lên GitHub thông qua Server Render
+    // Lưu nội dung lên GitHub thông qua Server Render (vào thư mục posts/)
     async function saveToGitHub() {
         const fileName = document.getElementById('fileName').value.trim();
+        const selectedDropdownValue = document.getElementById('fileSelect').value;
+        const originalFileName = selectedDropdownValue ? selectedDropdownValue : fileName;
+        
         const statusDiv = document.getElementById('status');
 
         if (!fileName) {
-            alert('Vui lòng nhập tên file (ví dụ: baiviet.md hoặc tailieu.html)!');
+            alert('Vui lòng nhập tên file (ví dụ: baiviet.md)!');
             return;
         }
 
@@ -156,15 +151,15 @@
         }
 
         statusDiv.style.color = '#005cc5';
-        statusDiv.innerText = 'Đang đẩy dữ liệu lên GitHub...';
+        statusDiv.innerText = 'Đang đẩy dữ liệu vào thư mục posts/ lên GitHub...';
 
         try {
             const response = await fetch('/api/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    fileName: fileName,         // Tên file mới (hoặc giữ nguyên)
-                    originalFileName: originalFileName, // Tên file cũ (nếu có để xử lý đổi tên/xóa file cũ)
+                    fileName: fileName,         
+                    originalFileName: originalFileName, 
                     content: contentToSend 
                 })
             });
@@ -174,8 +169,6 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
-                // Cập nhật lại originalFileName thành tên mới sau khi lưu thành công
-                originalFileName = fileName;
             } else {
                 statusDiv.style.color = '#d73a49';
                 statusDiv.innerText = `❌ Lỗi: ${result.message}`;
