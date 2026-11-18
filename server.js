@@ -18,7 +18,33 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. API lấy danh sách file theo thư mục động
+// 2. API quét danh sách tất cả các thư mục ở gốc GitHub repository
+app.get('/api/folders', async (req, res) => {
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents?ref=${GITHUB_BRANCH}`;
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'User-Agent': 'Node.js-Server'
+            }
+        });
+
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+            // Lọc ra các item là thư mục (dir)
+            const folders = data
+                .filter(item => item.type === 'dir')
+                .map(item => item.name);
+            res.json({ success: true, folders });
+        } else {
+            res.json({ success: true, folders: ['posts'] }); // Mặc định nếu lỗi
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 3. API lấy danh sách file theo thư mục động
 app.get('/api/files', async (req, res) => {
     try {
         const folder = req.query.folder || 'posts';
@@ -38,14 +64,14 @@ app.get('/api/files', async (req, res) => {
                 .map(item => item.name);
             res.json({ success: true, files });
         } else {
-            res.json({ success: true, files: [], message: 'Thư mục trống hoặc chưa tồn tại trên Git' });
+            res.json({ success: true, files: [], message: 'Thư mục trống' });
         }
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// 3. API đọc nội dung một file cụ thể theo thư mục
+// 4. API đọc nội dung một file cụ thể
 app.get('/api/file', async (req, res) => {
     try {
         const folder = req.query.folder || 'posts';
@@ -77,7 +103,7 @@ app.get('/api/file', async (req, res) => {
     }
 });
 
-// 4. API lưu, cập nhật hoặc đổi tên file trong thư mục chỉ định
+// 5. API lưu file
 app.post('/api/save', async (req, res) => {
     try {
         const { folder, fileName, originalFileName, content } = req.body;
@@ -162,7 +188,7 @@ app.post('/api/save', async (req, res) => {
     }
 });
 
-// 5. API Xóa file trên GitHub
+// 6. API Xóa file
 app.delete('/api/delete', async (req, res) => {
     try {
         const { folder, fileName } = req.body;
@@ -212,7 +238,7 @@ app.delete('/api/delete', async (req, res) => {
     }
 });
 
-// 6. API Chuyển file từ thư mục này sang thư mục khác
+// 7. API Chuyển file giữa các thư mục
 app.post('/api/move', async (req, res) => {
     try {
         const { currentFolder, targetFolder, fileName, content } = req.body;
@@ -223,10 +249,8 @@ app.post('/api/move', async (req, res) => {
 
         const encodedContent = Buffer.from(content, 'utf8').toString('base64');
 
-        // Bước A: Tạo file ở thư mục đích mới
         const newFileUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(targetFolder)}/${encodeURIComponent(fileName)}`;
         
-        // Kiểm tra xem file ở thư mục đích đã tồn tại chưa (để lấy SHA nếu ghi đè)
         let targetSha = null;
         const checkTarget = await fetch(`${newFileUrl}?ref=${GITHUB_BRANCH}`, {
             headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'User-Agent': 'Node.js-Server' }
@@ -256,7 +280,6 @@ app.post('/api/move', async (req, res) => {
             return res.status(400).json({ success: false, message: errData.message || 'Lỗi khi tạo file ở thư mục mới' });
         }
 
-        // Bước B: Xóa file ở thư mục cũ
         const oldFileUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(currentFolder)}/${encodeURIComponent(fileName)}?ref=${GITHUB_BRANCH}`;
         const checkOld = await fetch(oldFileUrl, {
             headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'User-Agent': 'Node.js-Server' }
