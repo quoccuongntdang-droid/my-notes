@@ -25,7 +25,7 @@
 <body>
 
 <div class="container">
-    <h2>✍️ Trình Soạn Thảo Chuẩn Word & GitHub (Thư mục posts/)</h2>
+    <h2>✍️ Trình Soạn Thảo Chuẩn Word & GitHub</h2>
 
     <div class="form-group">
         <label>📂 Chọn file có sẵn trong thư mục posts/ trên Git:</label>
@@ -35,8 +35,8 @@
     </div>
 
     <div class="form-group">
-        <label>Tên File (VD: baiviet.md hoặc ghichu.html):</label>
-        <input type="text" id="fileName" placeholder="ten-file.md">
+        <label>Tên File (Nhập tự do, hỗ trợ dấu cách, dấu chấm, dấu hỏi...):</label>
+        <input type="text" id="fileName" placeholder="Nhập tên bài viết...">
     </div>
 
     <div class="form-group">
@@ -92,7 +92,8 @@
         document.getElementById('status').innerText = `Đang tải nội dung file "${fileName}"...`;
 
         try {
-            const res = await fetch(`/api/file/${fileName}`);
+            // Sử dụng encodeURIComponent để xử lý an toàn các tên file chứa dấu cách hoặc ký tự đặc biệt
+            const res = await fetch(`/api/file/${encodeURIComponent(fileName)}`);
             const data = await res.json();
             if (data.success) {
                 tinymce.get('myEditor').setContent(data.content);
@@ -111,27 +112,10 @@
         document.getElementById('fileName').value = '';
         document.getElementById('fileSelect').value = '';
         tinymce.get('myEditor').setContent('');
-        document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới trong posts/.';
+        document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
 
-    // Hàm chuyển đổi HTML từ TinyMCE sang Markdown nếu lưu file .md
-    function htmlToMarkdown(html) {
-        let md = html;
-        md = md.replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n');
-        md = md.replace(/<h2>(.*?)<\/h2>/gi, '## $1\n\n');
-        md = md.replace(/<h3>(.*?)<\/h3>/gi, '### $1\n\n');
-        md = md.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
-        md = md.replace(/<b>(.*?)<\/b>/gi, '**$1**');
-        md = md.replace(/<em>(.*?)<\/em>/gi, '*$1*');
-        md = md.replace(/<i>(.*?)<\/i>/gi, '*$1*');
-        md = md.replace(/<code>(.*?)<\/code>/gi, '`$1`');
-        md = md.replace(/<p>(.*?)<\/p>/gi, '$1\n\n');
-        md = md.replace(/<br\s*[\/]?>/gi, '\n');
-        md = md.replace(/<[^>]+>/g, '');
-        return md.trim();
-    }
-
-    // Lưu nội dung lên GitHub thông qua Server Render (vào thư mục posts/)
+    // Lưu nội dung lên GitHub thông qua Server Render (Giữ nguyên định dạng gốc từ TinyMCE)
     async function saveToGitHub() {
         const fileName = document.getElementById('fileName').value.trim();
         const selectedDropdownValue = document.getElementById('fileSelect').value;
@@ -140,18 +124,15 @@
         const statusDiv = document.getElementById('status');
 
         if (!fileName) {
-            alert('Vui lòng nhập tên file (ví dụ: baiviet.md)!');
+            alert('Vui lòng nhập tên file!');
             return;
         }
 
+        // Lấy trực tiếp nội dung HTML/Text từ trình soạn thảo, không tự ý convert hay lọc bỏ gì cả
         let contentToSend = tinymce.get('myEditor').getContent();
 
-        if (fileName.endsWith('.md')) {
-            contentToSend = htmlToMarkdown(contentToSend);
-        }
-
         statusDiv.style.color = '#005cc5';
-        statusDiv.innerText = 'Đang đẩy dữ liệu vào thư mục posts/ lên GitHub...';
+        statusDiv.innerText = 'Đang đẩy dữ liệu lên GitHub...';
 
         try {
             const response = await fetch('/api/save', {
