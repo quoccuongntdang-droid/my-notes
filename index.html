@@ -105,6 +105,7 @@
             datalist.innerHTML = '';
 
             if (data.success && data.folders.length > 0) {
+                // Sắp xếp thư mục chuẩn số tự nhiên
                 data.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.folders.forEach(folder => {
@@ -124,7 +125,6 @@
         }
     }
 
-    // Chức năng tạo nhanh thư mục mới mà không cần nhập file/nội dung ngay
     async function createNewFolder() {
         const folder = document.getElementById('folderInput').value.trim();
         const statusDiv = document.getElementById('status');
@@ -138,7 +138,6 @@
         statusDiv.innerText = `Đang tạo thư mục mới "${folder}" trên GitHub...`;
 
         try {
-            // Do Git không lưu thư mục rỗng, ta tạo một file khởi tạo mặc định tên là "bat-dau" bên trong
             const response = await fetch('/api/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -186,6 +185,7 @@
             
             select.innerHTML = '';
             if (data.success && data.files.length > 0) {
+                // Sắp xếp file chuẩn số tự nhiên (1.1, 1.2, ..., 1.10...)
                 data.files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.files.forEach(file => {
@@ -220,7 +220,14 @@
                 const res = await fetch(`/api/file?folder=${encodeURIComponent(folder)}&filename=${encodeURIComponent(fileName)}`);
                 const data = await res.json();
                 if (data.success) {
-                    tinymce.get('myEditor').setContent(data.content);
+                    let fileContent = data.content;
+
+                    // Nếu file có đuôi .md, chuyển đổi cú pháp Markdown sang HTML để hiển thị đẹp mắt
+                    if (fileName.endsWith('.md')) {
+                        fileContent = markdownToHtml(fileContent);
+                    }
+
+                    tinymce.get('myEditor').setContent(fileContent);
                     document.getElementById('status').style.color = '#2ea44f';
                     document.getElementById('status').innerText = `Đã mở thành công file "${fileName}"!`;
                 } else {
@@ -233,6 +240,35 @@
             document.getElementById('status').style.color = '#005cc5';
             document.getElementById('status').innerText = `Đã chọn ${selectedOptions.length} file. Bạn có thể bấm chuyển hoặc xóa.`;
         }
+    }
+
+    // Hàm chuyển đổi Markdown sang HTML để hiển thị lên TinyMCE
+    function markdownToHtml(md) {
+        let html = md;
+        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+        html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+        html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = '<p>' + html + '</p>';
+        return html;
+    }
+
+    // Hàm chuyển đổi HTML từ TinyMCE sang Markdown sạch sẽ khi lưu file .md
+    function htmlToMarkdown(html) {
+        let md = html;
+        md = md.replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n');
+        md = md.replace(/<h2>(.*?)<\/h2>/gi, '## $1\n\n');
+        md = md.replace(/<h3>(.*?)<\/h3>/gi, '### $1\n\n');
+        md = md.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+        md = md.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+        md = md.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+        md = md.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+        md = md.replace(/<p>(.*?)<\/p>/gi, '$1\n\n');
+        md = md.replace(/<br\s*[\/]?>/gi, '\n');
+        md = md.replace(/<[^>]+>/g, '');
+        return md.trim();
     }
 
     function newFile() {
@@ -260,6 +296,11 @@
         }
 
         let contentToSend = tinymce.get('myEditor').getContent();
+
+        // Nếu file có đuôi .md, tự động convert sang Markdown chuẩn trước khi đẩy lên Git
+        if (fileName.endsWith('.md')) {
+            contentToSend = htmlToMarkdown(contentToSend);
+        }
 
         statusDiv.style.color = '#005cc5';
         statusDiv.innerText = 'Đang đẩy dữ liệu lên GitHub...';
