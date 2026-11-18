@@ -15,9 +15,10 @@
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 14px; }
         input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; background: #fff; }
         
-        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-        .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .btn { background: #2ea44f; color: white; border: none; flex: 1; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; min-width: 130px; }
         .btn-secondary { background: #0366d6; }
+        .btn-danger { background: #d73a49; }
         .btn:active { opacity: 0.8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
     </style>
@@ -25,18 +26,24 @@
 <body>
 
 <div class="container">
-    <h2>✍️ Trình Soạn Thảo Chuẩn Word & GitHub</h2>
+    <h2>✍️ Trình Soạn Thảo Quản Lý GitHub</h2>
+
+    <!-- Ô nhập tên thư mục -->
+    <div class="form-group">
+        <label>📁 Tên Thư mục trên Git (VD: posts, kinh-thanh, ghichu):</label>
+        <input type="text" id="folderName" value="posts" placeholder="Nhập tên thư mục..." onchange="loadFilesList()">
+    </div>
 
     <div class="form-group">
-        <label>📂 Chọn file có sẵn trong thư mục posts/ trên Git:</label>
+        <label>📂 Chọn file có sẵn trong thư mục này:</label>
         <select id="fileSelect" onchange="loadSelectedFile()">
-            <option value="">-- Tạo file mới hoặc chọn file cũ để sửa --</option>
+            <option value="">-- Chọn file cũ để sửa hoặc xem --</option>
         </select>
     </div>
 
     <div class="form-group">
-        <label>Tên File (Nhập tự do, hỗ trợ dấu cách, dấu chấm, dấu hỏi...):</label>
-        <input type="text" id="fileName" placeholder="Nhập tên bài viết...">
+        <label>Tên File:</label>
+        <input type="text" id="fileName" placeholder="Nhập tên file...">
     </div>
 
     <div class="form-group">
@@ -47,6 +54,7 @@
     <div class="btn-group">
         <button class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
         <button class="btn" onclick="saveToGitHub()">🚀 Lưu lên GitHub</button>
+        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file này</button>
     </div>
     <div id="status"></div>
 </div>
@@ -63,13 +71,23 @@
         branding: false
     });
 
-    // Tải danh sách file từ thư mục posts/ trên Git khi mở trang
-    window.onload = async function() {
+    // Tự động tải danh sách file khi vừa mở trang hoặc đổi tên thư mục
+    window.onload = function() {
+        loadFilesList();
+    };
+
+    // Hàm gọi API lấy danh sách file theo thư mục đang nhập
+    async function loadFilesList() {
+        const folder = document.getElementById('folderName').value.trim() || 'posts';
+        const select = document.getElementById('fileSelect');
+        select.innerHTML = '<option value="">-- Đang tải danh sách file... --</option>';
+
         try {
-            const res = await fetch('/api/files');
+            const res = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`);
             const data = await res.json();
+            
+            select.innerHTML = '<option value="">-- Chọn file cũ để sửa hoặc xem --</option>';
             if (data.success && data.files.length > 0) {
-                const select = document.getElementById('fileSelect');
                 data.files.forEach(file => {
                     const opt = document.createElement('option');
                     opt.value = file;
@@ -79,11 +97,13 @@
             }
         } catch (err) {
             console.error('Lỗi tải danh sách file:', err);
+            select.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
         }
-    };
+    }
 
     // Mở file cũ để sửa
     async function loadSelectedFile() {
+        const folder = document.getElementById('folderName').value.trim() || 'posts';
         const fileName = document.getElementById('fileSelect').value;
         if (!fileName) return;
 
@@ -92,8 +112,7 @@
         document.getElementById('status').innerText = `Đang tải nội dung file "${fileName}"...`;
 
         try {
-            // Sử dụng encodeURIComponent để xử lý an toàn các tên file chứa dấu cách hoặc ký tự đặc biệt
-            const res = await fetch(`/api/file/${encodeURIComponent(fileName)}`);
+            const res = await fetch(`/api/file?folder=${encodeURIComponent(folder)}&filename=${encodeURIComponent(fileName)}`);
             const data = await res.json();
             if (data.success) {
                 tinymce.get('myEditor').setContent(data.content);
@@ -115,8 +134,9 @@
         document.getElementById('status').innerText = 'Đã sẵn sàng tạo file mới.';
     }
 
-    // Lưu nội dung lên GitHub thông qua Server Render (Giữ nguyên định dạng gốc từ TinyMCE)
+    // Lưu nội dung lên GitHub
     async function saveToGitHub() {
+        const folder = document.getElementById('folderName').value.trim() || 'posts';
         const fileName = document.getElementById('fileName').value.trim();
         const selectedDropdownValue = document.getElementById('fileSelect').value;
         const originalFileName = selectedDropdownValue ? selectedDropdownValue : fileName;
@@ -128,7 +148,6 @@
             return;
         }
 
-        // Lấy trực tiếp nội dung HTML/Text từ trình soạn thảo, không tự ý convert hay lọc bỏ gì cả
         let contentToSend = tinymce.get('myEditor').getContent();
 
         statusDiv.style.color = '#005cc5';
@@ -139,6 +158,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
+                    folder: folder,
                     fileName: fileName,         
                     originalFileName: originalFileName, 
                     content: contentToSend 
@@ -150,6 +170,49 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
+                loadFilesList(); // Tải lại danh sách file
+            } else {
+                statusDiv.style.color = '#d73a49';
+                statusDiv.innerText = `❌ Lỗi: ${result.message}`;
+            }
+        } catch (error) {
+            statusDiv.style.color = '#d73a49';
+            statusDiv.innerText = `❌ Lỗi kết nối: ${error.message}`;
+        }
+    }
+
+    // Chức năng Xóa file
+    async function deleteFile() {
+        const folder = document.getElementById('folderName').value.trim() || 'posts';
+        const fileName = document.getElementById('fileName').value.trim();
+        const statusDiv = document.getElementById('status');
+
+        if (!fileName) {
+            alert('Vụi lòng chọn hoặc nhập tên file cần xóa!');
+            return;
+        }
+
+        if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn file "${fileName}" trong thư mục "${folder}" không?`)) {
+            return;
+        }
+
+        statusDiv.style.color = '#005cc5';
+        statusDiv.innerText = `Đang xóa file "${fileName}"...`;
+
+        try {
+            const response = await fetch('/api/delete', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder, fileName })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                statusDiv.style.color = '#2ea44f';
+                statusDiv.innerText = `🗑️ ${result.message}`;
+                newFile();
+                loadFilesList(); // Cập nhật lại danh sách file
             } else {
                 statusDiv.style.color = '#d73a49';
                 statusDiv.innerText = `❌ Lỗi: ${result.message}`;
