@@ -35,11 +35,11 @@
 <div class="container">
     <h2>✍️ Trình Soạn Thảo & Quản Lý Thư Mục GitHub</h2>
 
-    <!-- Ô nhập hoặc chọn thư mục hiện tại -->
+    <!-- Ô nhập hoặc chọn thư mục hiện tại (Mặc định trống trơn khi mới mở) -->
     <div class="form-group">
         <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
         <div style="display: flex; gap: 10px;">
-            <input type="text" id="folderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()" style="flex: 1;">
+            <input type="text" id="folderInput" value="" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()" style="flex: 1;">
             <button class="btn btn-info" style="flex: 0 0 160px; padding: 10px; font-size: 14px;" onclick="createNewFolder()">📁 Tạo thư mục mới</button>
         </div>
         <datalist id="foldersList"></datalist>
@@ -48,7 +48,7 @@
     <div class="form-group">
         <label>📂 Chọn file có sẵn trong thư mục này (Có thể chọn nhiều file):</label>
         <select id="fileSelect" multiple onchange="loadSelectedFile()">
-            <option value="">-- Đang tải danh sách file... --</option>
+            <option value="">-- Vui lòng chọn hoặc nhập thư mục trước --</option>
         </select>
         <div class="note">💡 Mẹo: Giữ phím <b>Ctrl</b> (Windows) hoặc <b>Cmd</b> (Mac) để chọn nhiều file. Chọn 1 file để mở và chỉnh sửa bên dưới.</div>
     </div>
@@ -93,10 +93,11 @@
     });
 
     window.onload = function() {
-        loadFoldersList(true);
+        loadFoldersList();
     };
 
-    async function loadFoldersList(setDefault = false) {
+    // Tải danh sách thư mục vào datalist, giữ nguyên ô nhập trống trơn khi mới vào
+    async function loadFoldersList() {
         try {
             const res = await fetch('/api/folders');
             const data = await res.json();
@@ -105,7 +106,6 @@
             datalist.innerHTML = '';
 
             if (data.success && data.folders.length > 0) {
-                // Sắp xếp thư mục chuẩn số tự nhiên
                 data.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.folders.forEach(folder => {
@@ -113,12 +113,6 @@
                     opt.value = folder;
                     datalist.appendChild(opt);
                 });
-
-                const folderInput = document.getElementById('folderInput');
-                if (setDefault && !folderInput.value) {
-                    folderInput.value = data.folders.includes('posts') ? 'posts' : data.folders[0];
-                    loadFilesList();
-                }
             }
         } catch (err) {
             console.error('Lỗi tải danh sách thư mục:', err);
@@ -153,7 +147,7 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 Đã tạo thành công thư mục "${folder}"!`;
-                await loadFoldersList(false);
+                await loadFoldersList();
                 await loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
@@ -172,12 +166,13 @@
     async function loadFilesList() {
         const folder = document.getElementById('folderInput').value.trim();
         const select = document.getElementById('fileSelect');
-        select.innerHTML = '<option value="">-- Đang tải danh sách file... --</option>';
 
         if (!folder) {
-            select.innerHTML = '<option value="">-- Chọn thư mục trước --</option>';
+            select.innerHTML = '<option value="">-- Vui lòng chọn hoặc nhập thư mục trước --</option>';
             return;
         }
+
+        select.innerHTML = '<option value="">-- Đang tải danh sách file... --</option>';
 
         try {
             const res = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`);
@@ -185,7 +180,6 @@
             
             select.innerHTML = '';
             if (data.success && data.files.length > 0) {
-                // Sắp xếp file chuẩn số tự nhiên (1.1, 1.2, ..., 1.10...)
                 data.files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
                 data.files.forEach(file => {
@@ -222,7 +216,6 @@
                 if (data.success) {
                     let fileContent = data.content;
 
-                    // Nếu file có đuôi .md, chuyển đổi cú pháp Markdown sang HTML để hiển thị đẹp mắt
                     if (fileName.endsWith('.md')) {
                         fileContent = markdownToHtml(fileContent);
                     }
@@ -242,7 +235,6 @@
         }
     }
 
-    // Hàm chuyển đổi Markdown sang HTML để hiển thị lên TinyMCE
     function markdownToHtml(md) {
         let html = md;
         html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
@@ -255,7 +247,6 @@
         return html;
     }
 
-    // Hàm chuyển đổi HTML từ TinyMCE sang Markdown sạch sẽ khi lưu file .md
     function htmlToMarkdown(html) {
         let md = html;
         md = md.replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n');
@@ -297,7 +288,6 @@
 
         let contentToSend = tinymce.get('myEditor').getContent();
 
-        // Nếu file có đuôi .md, tự động convert sang Markdown chuẩn trước khi đẩy lên Git
         if (fileName.endsWith('.md')) {
             contentToSend = htmlToMarkdown(contentToSend);
         }
@@ -316,7 +306,7 @@
             if (result.success) {
                 statusDiv.style.color = '#2ea44f';
                 statusDiv.innerText = `🎉 ${result.message}`;
-                await loadFoldersList(false);
+                await loadFoldersList();
                 await loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
@@ -361,7 +351,7 @@
             statusDiv.style.color = '#2ea44f';
             statusDiv.innerText = `🗑️ Đã xóa thành công ${successCount}/${fileNames.length} file!`;
             newFile();
-            await loadFoldersList(false);
+            await loadFoldersList();
             await loadFilesList();
         } catch (error) {
             statusDiv.style.color = '#d73a49';
@@ -412,7 +402,7 @@
                 
                 document.getElementById('folderInput').value = targetFolder;
                 
-                await loadFoldersList(false);
+                await loadFoldersList();
                 await loadFilesList();
             } else {
                 statusDiv.style.color = '#d73a49';
