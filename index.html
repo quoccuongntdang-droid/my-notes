@@ -28,6 +28,8 @@
         #status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
         .move-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 15px; }
         .note { font-size: 12px; color: #666; margin-top: 4px; font-style: italic; }
+        .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
+        .btn-fullscreen { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -40,7 +42,7 @@
         <label>📁 Thư mục hiện tại (Chọn có sẵn hoặc gõ tên thư mục mới):</label>
         <div style="display: flex; gap: 10px;">
             <input type="text" id="folderInput" value="" list="foldersList" placeholder="Nhập hoặc chọn thư mục..." onchange="onFolderChange()" oninput="onFolderChange()" style="flex: 1;">
-            <button class="btn btn-info" style="flex: 0 0 160px; padding: 10px; font-size: 14px;" onclick="createNewFolder()">📁 Tạo thư mục mới</button>
+            <button type="button" class="btn btn-info" style="flex: 0 0 160px; padding: 10px; font-size: 14px;" onclick="createNewFolder()">📁 Tạo thư mục mới</button>
         </div>
         <datalist id="foldersList"></datalist>
     </div>
@@ -59,14 +61,17 @@
     </div>
 
     <div class="form-group">
-        <label>Nội dung soạn thảo (Giao diện chuyên nghiệp):</label>
+        <div class="editor-header">
+            <label style="margin-bottom: 0;">Nội dung soạn thảo (Giao diện chuyên nghiệp):</label>
+            <button type="button" class="btn btn-secondary btn-fullscreen" onclick="openEditorInNewTab()">🗗 Mở qua trang mới (Full màn hình)</button>
+        </div>
         <textarea id="myEditor"></textarea>
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
-        <button class="btn" onclick="saveToGitHub()">🚀 Lưu lên GitHub</button>
-        <button class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file đang chọn</button>
+        <button type="button" class="btn btn-secondary" onclick="newFile()">📄 Viết bài mới</button>
+        <button type="button" class="btn" onclick="saveToGitHub()">🚀 Lưu lên GitHub</button>
+        <button type="button" class="btn btn-danger" onclick="deleteFile()">🗑️ Xóa file đang chọn</button>
     </div>
 
     <!-- Khối chuyển file sang thư mục khác -->
@@ -75,19 +80,21 @@
             <label style="color: #d97706;">➡️ Chuyển các file đang chọn sang thư mục đích:</label>
             <input type="text" id="targetFolderInput" list="foldersList" placeholder="Nhập hoặc chọn thư mục đích đến...">
         </div>
-        <button class="btn btn-warning" style="width: 100%;" onclick="moveMultipleFiles()">📂 Xác nhận chuyển các file đã chọn</button>
+        <button type="button" class="btn btn-warning" style="width: 100%;" onclick="moveMultipleFiles()">📂 Xác nhận chuyển các file đã chọn</button>
     </div>
 
     <div id="status"></div>
 </div>
 
 <script>
+    const DRAFT_KEY = 'github_editor_draft_session';
+
     tinymce.init({
         selector: '#myEditor',
         height: 420,
         menubar: 'file edit view insert format tools table',
-        plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
-        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image media table | align left center right justify | bullist numlist indent outdent | removeformat',
+        plugins: 'anchor autolink charmap codesample emoticons fullscreen image link lists media searchreplace table visualblocks wordcount',
+        toolbar: 'fullscreen undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image media table | align left center right justify | bullist numlist indent outdent | removeformat',
         language: 'vi',
         branding: false
     });
@@ -96,7 +103,70 @@
         loadFoldersList();
     };
 
-    // Tải danh sách thư mục vào datalist, giữ nguyên ô nhập trống trơn khi mới vào
+    function openEditorInNewTab() {
+        const folder = document.getElementById('folderInput').value.trim();
+        const fileName = document.getElementById('fileName').value.trim();
+        const editor = tinymce.get('myEditor');
+        const content = editor ? editor.getContent() : '';
+
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            folder,
+            fileName,
+            content,
+            updatedAt: Date.now()
+        }));
+
+        const newWin = window.open('/editor', '_blank');
+        if (!newWin) {
+            alert('Trình duyệt đang chặn pop-up. Hãy cho phép mở tab mới cho trang web này!');
+        }
+    }
+
+    function pullContentFromDraft() {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        try {
+            const draft = JSON.parse(raw);
+            const editor = tinymce.get('myEditor');
+            if (editor && typeof draft.content === 'string') {
+                editor.setContent(draft.content);
+                const statusDiv = document.getElementById('status');
+                statusDiv.style.color = '#2ea44f';
+                statusDiv.innerText = '✅ Đã cập nhật nội dung mới nhất từ trang soạn thảo!';
+            }
+        } catch (e) {
+            console.error('Lỗi đồng bộ nội dung:', e);
+        }
+    }
+
+    window.addEventListener('message', async function(event) {
+        if (!event.data) return;
+        if (event.data.type === 'SYNC_EDITOR_CONTENT') {
+            pullContentFromDraft();
+        } else if (event.data.type === 'REFRESH_FROM_EDITOR') {
+            if (event.data.folder) {
+                document.getElementById('folderInput').value = event.data.folder;
+            }
+            if (event.data.fileName) {
+                document.getElementById('fileName').value = event.data.fileName;
+            }
+            pullContentFromDraft();
+            await loadFoldersList();
+            await loadFilesList();
+        }
+    });
+
+    window.addEventListener('focus', function() {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        try {
+            const draft = JSON.parse(raw);
+            if (draft.updatedAt && Date.now() - draft.updatedAt < 600000) {
+                pullContentFromDraft();
+            }
+        } catch (e) {}
+    });
+
     async function loadFoldersList() {
         try {
             const res = await fetch('/api/folders');
