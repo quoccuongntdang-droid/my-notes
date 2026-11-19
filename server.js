@@ -17,6 +17,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/editor', (req, res) => {
+    res.sendFile(path.join(__dirname, 'editor.html'));
+});
+
 app.get('/api/folders', async (req, res) => {
     try {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents?ref=${GITHUB_BRANCH}`;
@@ -199,7 +203,7 @@ app.post('/api/move-multiple', async (req, res) => {
                     headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'User-Agent': 'Node.js-Server' },
                     body: JSON.stringify({
                         message: `Chuyển hàng loạt file ${fileName} sang ${targetFolder}`,
-                        content: fileData.content, // Nội dung đã mã hóa Base64 sẵn từ GitHub
+                        content: fileData.content,
                         branch: GITHUB_BRANCH,
                         sha: targetSha
                     })
